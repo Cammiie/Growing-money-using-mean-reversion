@@ -1,0 +1,166 @@
+//@version=4
+strategy("CramBot",overlay=true,pyramiding=8)
+
+theoscillator1=rsi(hma(close,700),70)
+theoscillator2=rsi(hma(close,1000),250)
+buyRSI=input(defval = 5, title = "RSI Buy Value", minval=1,maxval=100)
+sellRSI=input(defval = 95, title = "RSI Sell Value", minval=1,maxval=100)
+upperVal=input(defval = 1500, title = "Upper Baseline")
+lowerVal=input(defval = 2000, title = "Lower Baseline")
+buySpacing=input(defval=10,minval=1,title="Buy Order Spacing (ATR-based)")
+manualBuySpacing=input(defval=1.0,minval=0.00001, title="Buy Order Spacing (Manual)")
+sellSpacing=input(defval=10,minval=1,title="Sell Order Spacing")
+bounceSellAggression=input(defval=10,minval=1,title="Bounce Aggression")
+upper=highest(upperVal)
+lower=lowest(lowerVal)
+theprice=sma(close,1)
+var lastLower=0.0
+centerLine=hma(upper-abs(upper-lower)/2,500)
+var sellState=0
+var sellState2=0
+var buyState=0.0
+var bounceDone=0
+var lastClose=0.0
+var buyToggle=0
+var buyCount=0
+var upperBaseState=0
+var lowerBaseState=0
+var buy1=0.0
+var buy2=0.0
+var buy3=0.0
+var buy4=0.0
+var buy5=0.0
+var buy6=0.0
+var positionAverage=0.0
+hma_rsi=rsi(hma(close, 170), 6)
+var breakTolerance=100
+
+//SSL CHANNEL//
+period=30
+len=30
+smaHigh=sma(high, len)
+smaLow=sma(low, len)
+Hlv = 0
+Hlv := close > smaHigh ? 1 : close < smaLow ? -1 : Hlv[1]
+sslDown = Hlv < 0 ? smaHigh: smaLow
+sslUp   = Hlv < 0 ? smaLow : smaHigh
+period2=5
+len2=5
+smaHigh2=sma(high, len2)
+smaLow2=sma(low, len2)
+Hlv2 = 0
+Hlv2 := close > smaHigh2 ? 1 : close < smaLow2 ? -1 : Hlv2[1]
+sslDown2 = Hlv2 < 0 ? smaHigh2: smaLow2
+sslUp2   = Hlv2 < 0 ? smaLow2 : smaHigh2
+
+longCondition=theoscillator1<20 and lowerBaseState==1
+sslBuy=crossover(sslUp2,sslDown2) and longCondition and buyToggle==0
+rsiBuy=longCondition and buyToggle==0 and rsi(close,14)<buyRSI
+shortCondition=theoscillator2>80
+grindSell=crossunder(sslUp,sslDown) and shortCondition and close>centerLine and sellState==0
+centerSell=crossover(close,centerLine) and sellState==0 and close>positionAverage
+rsiSell=rsi(close,30)>sellRSI and sellState==0
+bounceSell=sellState==0 and (buyCount>0 or longCondition) and bounceDone==0 and (close>positionAverage+((bounceSellAggression/2)*atr(50)))
+
+if upper==upper[breakTolerance]
+    upperBaseState:=0
+if lower==lower[breakTolerance]
+    lowerBaseState:=0
+if upper!=upper[breakTolerance] and close>upper[breakTolerance]
+    upperBaseState:=1
+if lower!=lower[breakTolerance] and close<lower[breakTolerance]
+    lowerBaseState:=1
+
+alertcondition(longCondition and not longCondition[1],"Enable Buying")
+alertcondition(longCondition[1] and not longCondition,"Disable Buying")
+alertcondition(shortCondition and not shortCondition[1],"Enable Selling")
+
+if buyToggle==1 and (close<lastClose-buySpacing*atr(25) or close<lastClose-manualBuySpacing)
+    buyToggle:=0
+if sellState==1 and (close>lastClose+sellSpacing*atr(500) or buyState>0)
+    sellState:=0
+
+if longCondition and not longCondition[1]
+    buyState:=lower[1]
+    lastClose:=0
+if not longCondition and longCondition[1]
+    buyState:=0
+
+if (sslBuy or rsiBuy) and buyToggle==0 and buyCount==0
+    buyToggle:=1
+    buyCount:=1
+    bounceDone:=0
+    sellState:=0
+    lastClose:=close
+    buy1:=close
+    strategy.entry("Long",strategy.long,qty=100)
+    positionAverage:=close
+if (sslBuy or rsiBuy) and buyToggle==0 and buyCount==1 and close<buy1
+    buyToggle:=1
+    buyCount:=2
+    bounceDone:=0
+    lastClose:=close
+    buy2:=close
+    strategy.entry("Long",strategy.long,qty=100)
+    positionAverage:=close+(positionAverage-close)/2
+if (sslBuy or rsiBuy) and buyToggle==0 and buyCount==2 and close<buy2
+    buyToggle:=1
+    buyCount:=3
+    bounceDone:=0
+    lastClose:=close
+    buy3:=close
+    strategy.entry("Long",strategy.long,qty=100)
+    positionAverage:=buy2
+if (sslBuy or rsiBuy) and buyToggle==0 and buyCount==3 and close<buy3
+    buyToggle:=1
+    buyCount:=4
+    bounceDone:=0
+    lastClose:=close
+    buy4:=close
+    strategy.entry("Long",strategy.long,qty=100)
+if (sslBuy or rsiBuy) and buyToggle==0 and buyCount==4 and close<buy4
+    buyToggle:=1
+    buyCount:=5
+    bounceDone:=0
+    lastClose:=close
+    buy5:=close
+    strategy.entry("Long",strategy.long,qty=100)
+if (sslBuy or rsiBuy) and buyToggle==0 and buyCount==4 and close<buy5
+    buyToggle:=1
+    buyCount:=6
+    bounceDone:=0
+    lastClose:=close
+    buy6:=close
+    strategy.entry("Long",strategy.long,qty=100)
+    
+if grindSell or centerSell or rsiSell
+    sellState:=1
+    buyCount:=0
+    buyToggle:=0
+    lastClose:=close
+    strategy.close("Long", qty_percent=30, when=grindSell or centerSell)
+    strategy.close("Long", qty_percent=100, when=rsiSell)
+if bounceSell
+    strategy.close("Long", qty_percent=70, when=bounceSell)
+    lastClose:=close
+    sellState:=1
+    bounceDone:=1
+    buyCount:=0
+    
+buyZoneColor=buyState>0?#00FF00:na
+lowerBaseColor=lowerBaseState==0?#00FF00:na
+p0=plot(hma(lower,700),color=lowerBaseColor,style=plot.style_circles)
+p2=plot(hma(centerLine,700),transp=70,style=plot.style_circles,color=#00FF00)
+p1=plot(theprice,transp=100)
+//fill(p0,p1,color=buyZoneColor)
+fill(p2,p0,color=#00FF00)
+plotchar(sslBuy,location=location.belowbar,size=size.normal,char=' ',color=#00FF00)
+plotchar(grindSell or bounceSell or centerSell or bounceSell or rsiSell,char=' ',location=location.abovebar,size=size.normal,color=#00FF00)
+barcolor(close<centerLine?#00FF00:na)
+positionAverageColor=buyCount>0?#00FF00:na
+//plot(positionAverage,color=positionAverageColor,style=plot.style_circles,linewidth=2)
+
+alertcondition(rsiSell, "RSI Sell")
+alertcondition(grindSell or centerSell,"Grind Sell")
+alertcondition(bounceSell,"Bounce Sell")
+alertcondition(sslBuy or rsiBuy,"Buy")
