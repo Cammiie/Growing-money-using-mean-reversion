@@ -1,0 +1,35 @@
+//@version=3
+strategy("Growing Money",overlay=true,pyramiding=10)
+upper=ta.highest(200)
+lower=ta.lowest(500)
+centerline=upper-math.abs(upper-lower)/2
+var state=0
+var lastClose=0.0
+var buyLimit=0
+bubbles=ta.hma(close,50)
+
+longCondition=state==0 and close<centerline-(ta.atr(50)*6) and buyLimit<4
+sellCondition=buyLimit>0 and ta.crossover(close,centerline)
+
+if longCondition
+    state:=1
+    buyLimit:=buyLimit+1
+    strategy.entry("Buy",strategy.long)
+    lastClose:=close
+if sellCondition
+    state:=0
+    buyLimit:=0
+    strategy.close("Buy")
+if close<lastClose-(ta.atr(50)*4) and state==1
+    state:=0
+
+alertcondition(longCondition,"Buy")
+alertcondition(sellCondition,"Sell")
+
+p0=plot(ta.hma(centerline,40),color=color.green,style=plot.style_circles,linewidth=2)
+p1=plot((0),transp=100)
+fill(p0,p1,color=#331605,transp=30)
+bubbleColor=close<centerline-(ta.atr(50)*9)?#ffb135:na
+//plot(bubbles,color=bubbleColor,style=plot.style_circles)
+barcolor(sellCondition?#00FF00:buyLimit>0?#e98520:na)
+plotchar(sellCondition,location=location.abovebar,size=size.normal,char='$',color=color.lime)
